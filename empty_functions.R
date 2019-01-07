@@ -96,9 +96,7 @@ geometric_model <- function(input_data, cutoff = 10) {
                               cutoff = cutoff))
 }
 
-two_geometric_model <- function() {
-  
-}
+
 
 three_geometric_model <- function() {
   
