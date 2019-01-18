@@ -1,5 +1,4 @@
-library(dplyr)
-library(magrittr)
+
 ## convert: transform phyloseq object into frequency count data
 
 ## alpha_estimate: return an "alpha_estimate" object
@@ -13,26 +12,28 @@ library(magrittr)
 ## O_c: observed counts;
 ## E_c: theoretic counts;
 ## param: number of parameters
-GOF <- function(O_c, E_c, param) {
+## bin.tol: bin counts
+GOF <- function(O_c, E_c, param, bin.tol = 0) {
   ## bin the counts that are less than five
   ## start with the first cell. bin the cells one by one
-  for (i in 1:(length(E_c) - 1)) {
-    while(length(E_c) > i & E_c[i] < bin.tol) {
-      E_c[i] <- E_c[i] + E_c[i+1]
-      E_c <- E_c[-(i+1)]
-      O_c[i] <- O_c[i] + O_c[i+1]
-      O_c <- O_c[-(i+1)]
+  if (bin.tol > 0) {
+    for (i in 1:(length(E_c) - 1)) {
+      while(length(E_c) > i & E_c[i] < bin.tol) {
+        E_c[i] <- E_c[i] + E_c[i+1]
+        E_c <- E_c[-(i+1)]
+        O_c[i] <- O_c[i] + O_c[i+1]
+        O_c <- O_c[-(i+1)]
+      }
+    }
+    
+    ## if the last cell contains less than 5, bin the last two together
+    if (last(E_c) < bin.tol) {
+      E_c[length(E_c) - 1] <- E_c[length(E_c) - 1] + E_c[length(E_c)]
+      E_c <- E_c[-length(E_c)]
+      O_c[length(O_c) - 1] <- O_c[length(O_c) - 1] + O_c[length(O_c)]
+      O_c <- O_c[-length(O_c)]
     }
   }
-  
-  ## if the last cell contains less than 5, bin the last two together
-  if (last(E_c) < bin.tol) {
-    E_c[length(E_c) - 1] <- E_c[length(E_c) - 1] + E_c[length(E_c)]
-    E_c <- E_c[-length(E_c)]
-    O_c[length(O_c) - 1] <- O_c[length(O_c) - 1] + O_c[length(O_c)]
-    O_c <- O_c[-length(O_c)]
-  }
-  
   ## calculate the goodness-of-fit statistic
   WW <- sum((O_c - E_c)^2/E_c)
   
@@ -44,7 +45,7 @@ GOF <- function(O_c, E_c, param) {
 
 
 geometric_model <- function(input_data, cutoff = 10) {
-  input_data <- convert(input_data)
+  input_data <- breakaway::convert(input_data)
   included <- input_data %>% filter(index <= cutoff)
   excluded <- input_data %>% filter(index > cutoff)
   if (nrow(included) == 0) {
@@ -52,10 +53,13 @@ geometric_model <- function(input_data, cutoff = 10) {
     excluded <- list(index = Inf, frequency = 0)
   }
   
-  c_tau <- included$frequency %>% sum
+  ii <- included$index
+  ff <- included$frequency
+  
+  c_tau <- ff %>% sum
   c_excluded <- excluded$frequency %>% sum
   
-  n_tau <- included %$% crossprod(index, frequency) %>% as.numeric
+  n_tau <- crossprod(ii, ff) %>% as.numeric
   
   ## parameter in the geometric model 
   theta_hat <- n_tau/c_tau - 1
@@ -79,7 +83,18 @@ geometric_model <- function(input_data, cutoff = 10) {
            C_hat_truncated * pgeom(max(included$index), 
                                    prob = 1/(1 + theta_hat), lower.tail = F))
   
-  GOF.geom <- GOF(O_c = O_c, E_c = E_c, param = 1)$GOF
+  GOF0.geom <- GOF(O_c = O_c, E_c = E_c, param = 1, bin.tol = 0)
+  GOF5.geom <- GOF(O_c = O_c, E_c = E_c, param = 1, bin.tol = 5)
+  
+  
+  ## AICc
+  AICc <- c_tau / (c_tau - 2) - sum(log(1:c_tau)) + 
+    sapply(1:length(ff), function(i) {
+      sum(log(1:ff[i]))
+    }) %>% sum -
+    sapply(1:length(ff), function(i) {
+      ff[i] * (-log(theta_hat) + ii[i] * log(theta_hat/(1+theta_hat)))
+    }) %>% sum
   
   alpha_estimate(estimate = C_hat,
                  error = se_hat,
@@ -92,8 +107,13 @@ geometric_model <- function(input_data, cutoff = 10) {
                  reasonable = FALSE,
                  interval = C_confint,
                  interval_type = "Approximate: log-normal",
+                 GOF0 = pchisq(GOF0.geom$GOF, GOF0.geom$df, lower.tail = F) %>% signif(4),
+                 GOF5 = pchisq(GOF5.geom$GOF, GOF5.geom$df, lower.tail = F) %>% signif(4),
+                 AICc = AICc,
                  other = list(theta_hat = theta_hat,
                               cutoff = cutoff))
+  
+
 }
 
 
@@ -148,8 +168,8 @@ chao1 <- function() {
 ## --------------------------
 ## ace
 
-GOF0.poisson <- function(input_data, cutoff = 10, bin.tol = 5) {
-  input_data <- convert(input_data)
+Poisson_model <- function(input_data, cutoff = 10) {
+  input_data <- breakaway::convert(input_data)
   
   ## truncate the data by the cutoff
   included <- input_data %>% filter(index <= cutoff)
@@ -161,7 +181,10 @@ GOF0.poisson <- function(input_data, cutoff = 10, bin.tol = 5) {
     excluded <- list(index = Inf, frequency = 0)
   }
   
-  c_included <- included$frequency %>% sum
+  ii <- included$index
+  ff <- included$frequency
+  
+  c_tau <- sum(ff)
   c_excluded <- excluded$frequency %>% sum
   
   ## total number of individuals in the truncated data
@@ -169,13 +192,22 @@ GOF0.poisson <- function(input_data, cutoff = 10, bin.tol = 5) {
     as.numeric
   
   poisson_fn <- function(lambda) {
-    (1 - exp(-lambda))/lambda - c_included/nn
+    (1 - exp(-lambda))/lambda - c_tau/nn
   }
   
   lambda_hat <- uniroot(poisson_fn, c(1e-04, 1e+06))$root
   
   ## estimated number of classes after truncation
-  c_hat_truncated <- c_included/(1 - exp(-lambda_hat))
+  c_hat_truncated <- c_tau/(1 - exp(-lambda_hat))
+  C_hat <- c_hat_truncated + c_excluded
+  
+  ## estimated standard error
+  cc_se <- sqrt(c_hat_truncated / (exp(lambda_hat) - 1 - lambda_hat))
+  
+  ## confidence interval
+  f0 <- c_hat_truncated - c_tau
+  dd <- ifelse(f0 == 0, 1, exp(1.96 * sqrt(log(1 + cc_se^2/f0))))
+  C_confint <- c(c_tau + c_excluded + f0/dd, c_tau + c_excluded + f0 * dd)
   
   ## get expected counts
   E_c <- c(c_hat_truncated * dpois(included$index, lambda = lambda_hat),
@@ -185,35 +217,36 @@ GOF0.poisson <- function(input_data, cutoff = 10, bin.tol = 5) {
   
   ## bin the counts that are less than five
   ## start with the first cell. bin the cells one by one
-  for (i in 1:(length(E_c) - 1)) {
-    while(length(E_c) > i & E_c[i] < bin.tol) {
-      E_c[i] <- E_c[i] + E_c[i+1]
-      E_c <- E_c[-(i+1)]
-      O_c[i] <- O_c[i] + O_c[i+1]
-      O_c <- O_c[-(i+1)]
-    }
-  }
+  GOF0.poisson <- GOF(O_c = O_c, E_c = E_c, param = 1, bin.tol = 0)
+  GOF5.poisson <- GOF(O_c = O_c, E_c = E_c, param = 1, bin.tol = 5)
   
-  ## if the last cell contains less than 5, bin the last two together
-  if (last(E_c) < bin.tol) {
-    E_c[length(E_c) - 1] <- E_c[length(E_c) - 1] + E_c[length(E_c)]
-    E_c <- E_c[-length(E_c)]
-    O_c[length(O_c) - 1] <- O_c[length(O_c) - 1] + O_c[length(O_c)]
-    O_c <- O_c[-length(O_c)]
-  }
+  ## AICc
   
-  ## calculate the goodness-of-fit statistic
-  WW <- sum((O_c - E_c)^2/E_c)
+  AICc <- c_tau / (c_tau - 2) - sum(log(1:c_tau)) + 
+    sapply(1:length(ff), function(i) {
+      sum(log(1:ff[i]))
+    }) %>% sum -
+    sapply(1:length(ff), function(i) {
+      ff[i] * (ii[i] * log(lambda_hat) - lambda_hat - sum(log(1:ii[i])) -
+                 log(1 - exp(-lambda_hat)))
+    }) %>% sum
   
-  ## degree of freedom of the GOF of the poisson model
-  vv <- length(E_c) - 2
   
-  return(list(GOF = WW, df = vv))
-}
-## test
-GOF0.poisson(apples)
-
-
-AICc <- function(input_data, est, cutoff = 10) {
-  
+  ## Return the alpha estimate
+  alpha_estimate(estimate = C_hat,
+                 error = cc_se,
+                 estimand = "richness",
+                 name = "Poisson Model",
+                 type = "parametric",
+                 model = "Poisson",
+                 frequentist = TRUE,
+                 parametric = TRUE,
+                 reasonable = FALSE,
+                 GOF0 = pchisq(GOF0.poisson$GOF, GOF0.poisson$df, lower.tail = F) %>% signif(4),
+                 GOF5 = pchisq(GOF5.poisson$GOF, GOF5.poisson$df, lower.tail = F) %>% signif(4),
+                 AICc = AICc,
+                 interval = C_confint,
+                 interval_type = "Approximate: log-normal",
+                 other = list(lambda_hat = lambda_hat,
+                              cutoff = cutoff))
 }
