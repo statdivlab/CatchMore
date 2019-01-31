@@ -88,11 +88,11 @@ geometric_model <- function(input_data, cutoff = 10) {
   
   
   ## AICc
-  AICc <- c_tau / (c_tau - 2) - sum(log(1:c_tau)) + 
-    sapply(1:length(ff), function(i) {
+  AICc <- 2 * c_tau / (c_tau - 2) - 2 * sum(log(1:c_tau)) + 
+    2 * sapply(1:length(ff), function(i) {
       sum(log(1:ff[i]))
     }) %>% sum -
-    sapply(1:length(ff), function(i) {
+    2 * sapply(1:length(ff), function(i) {
       ff[i] * (-log(theta_hat) + ii[i] * log(theta_hat/(1+theta_hat)))
     }) %>% sum
   
@@ -222,11 +222,11 @@ Poisson_model <- function(input_data, cutoff = 10) {
   
   ## AICc
   
-  AICc <- c_tau / (c_tau - 2) - sum(log(1:c_tau)) + 
-    sapply(1:length(ff), function(i) {
+  AICc <- 2 * c_tau / (c_tau - 2) - 2 * sum(log(1:c_tau)) + 
+    2 * sapply(1:length(ff), function(i) {
       sum(log(1:ff[i]))
     }) %>% sum -
-    sapply(1:length(ff), function(i) {
+    2 * sapply(1:length(ff), function(i) {
       ff[i] * (ii[i] * log(lambda_hat) - lambda_hat - sum(log(1:ii[i])) -
                  log(1 - exp(-lambda_hat)))
     }) %>% sum

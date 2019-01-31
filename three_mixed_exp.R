@@ -5,7 +5,7 @@ source("empty_functions.R")
 data(apples)
 input_data <- apples
 
-three_geometric_model <- function(input_data, cutoff = 40, ...) {
+three_geometric_model <- function(input_data, cutoff = 10, ...) {
   input_data <- breakaway::convert(input_data)
   
   ## convert the data to frequency table
@@ -68,27 +68,23 @@ three_geometric_model <- function(input_data, cutoff = 40, ...) {
   f0 <- C_tau - c_tau
   C_hat <- C_tau + c_excluded
   ## se
-  se_hat <- two_mixed_exp_se(C_tau, t1, t2, t3)
+  se_hat <- three_mixed_exp_se(C_tau, t1, t2, t3, t4, t5)
   
   ## confidence interval
   dd <- ifelse(f0 == 0, 1, exp(1.96 * sqrt(log(1 + se_hat^2/f0))))
   
-  C_confint <- c(c_tau + c_excluded + f0/dd, c_tau + c_excluded + f0 * dd)
+  C_confint <- c(c_tau + c_excluded + f0 / dd, c_tau + c_excluded + f0 * dd)
   ## AICc
-  AICc <- 3 * c_tau / (c_tau - 4) - sum(log(1:c_tau)) + 
-    sapply(1:length(ff), function(i) {
-      sum(log(1:ff[i]))
-    }) %>% sum -
-    sum(ff * log(u / t1 * (t1 / (1 + t1))^ii + (1 - u) / t2 * (t2 / (1 + t2))^ii))
-  
+  AICc <- 10 * c_tau / (c_tau - 6) -2 *three_mixed_exp_lld(ii, ff, t1, t2, t3, u1, u2, full = T)
   
   ## GOF0 and GOF5
   O_c <- c(ff, 0)
-  pp_E <- u / t1 * (t1 / (1 + t1))^ii + (1-u) / t2 * (t2 / (1 + t2))^ii
+  pp_E <- t4 / t1 * (t1 / (1 + t1))^ii + t5 / t2 * (t2 / (1 + t2))^ii +
+    (1 - t4 - t5) / t3 * (t3 / (1 + t3))^ii
   E_c <- c_tau * c(pp_E, 1-sum(pp_E))
   
-  GOF0_twomixedexp <- GOF(O_c = O_c, E_c = E_c, param = 3, bin.tol = 0)
-  GOF5_twomixedexp <- GOF(O_c = O_c, E_c = E_c, param = 3, bin.tol = 5)
+  GOF0_threemixedexp <- GOF(O_c = O_c, E_c = E_c, param = 3, bin.tol = 0)
+  GOF5_threemixedexp <- GOF(O_c = O_c, E_c = E_c, param = 3, bin.tol = 5)
   
   
   alpha_estimate(estimate = C_hat,
@@ -102,13 +98,14 @@ three_geometric_model <- function(input_data, cutoff = 40, ...) {
                  reasonable = TRUE,
                  interval = C_confint,
                  interval_type = "Approximate: log-normal",
-                 GOF0 = pchisq(GOF0_twomixedexp$GOF, GOF0_twomixedexp$df, lower.tail = F) %>% signif(4),
-                 GOF5 = pchisq(GOF5_twomixedexp$GOF, GOF5_twomixedexp$df, lower.tail = F) %>% signif(4),
+                 GOF0 = pchisq(GOF0_threemixedexp$GOF, GOF0_threemixedexp$df, lower.tail = F) %>% signif(4),
+                 GOF5 = pchisq(GOF5_threemixedexp$GOF, GOF5_threemixedexp$df, lower.tail = F) %>% signif(4),
                  AICc = AICc,
                  other = list(t1 = t1,
                               t2 = t2,
                               t3 = t3,
-                              u = u,
+                              t4 = t4,
+                              t5 = t5,
                               cutoff = cutoff))
 }
 
@@ -228,25 +225,27 @@ three_mixed_exp_EM <- function(ii, ff, MaxIter = 1000, tol = 1e-7) {
               flag = flag))
 }
 
-three_mixed_exp_se <- function(cc, t1, t2, t3, MaxIter = 500, tol = 1e-7) {
-  a00 <- (t2 + t1 * t2 + t1 * t3 - t2 * t3) /
-    (1 + t1 - t1 * t3 + t2 * t3)
-  a0 <- matrix(c(t3 * (1 + t2) / ((1 + t1) * (1 + t1 + t2 * t3 - t1 * t3)),
-                 (1 + t1) * (1 - t3) / ((1 + t2) * (1 + t1 - t1 * t3 + t2 * t3)),
-                 (t1 - t2) / (1 + t1 - t1 * t3 + t2 * t3)), nrow = 3)
+three_mixed_exp_se <- function(cc, t1, t2, t3, t4, t5, MaxIter = 500, tol = 1e-7) {
+  a00 <- (1 - t4 / (1 + t1) - t5 / (1 + t2) - (1 - t4 - t5) / (1 + t3)) / 
+    (t4 / (1 + t1) + t5 / (1 + t2) + (1 - t4 - t5) / (1 + t3))
+  a0 <- - matrix(c(-t4 / (1 + t1) ^ 2, -t5 / (1 + t2) ^ 2, -(1 - t4 - t5) / (1 + t3) ^ 2,
+                   1 / (1 + t1) - 1 / (1 + t3), 1 / (1 + t2) - 1 / (1 + t3)), nrow = 5) /
+    (t4 / (1 + t1) + t5 / (1 + t2) + (1 - t4 - t5) / (1 + t3))
   A <- 0
   k <- 0
   while(k < MaxIter) {
-    p_k <- t3 / (1 + t1) * (t1 / (1 + t1)) ^ k +
-      (1 - t3) / (1 + t2) * (t2 / (1 + t2)) ^ k
-    p_k1 <- (t1 / (1 + t1)) ^ (k - 1) * (k - t1) * t3 / (1 + t1) ^ 3
-    p_k2 <- (t2 / (1 + t2)) ^ (k - 1) * (k - t2) * (1 - t3) / (1 + t2) ^ 3
-    p_k3 <- (t1 / (1 + t1)) ^ k / (1 + t1) - (t2 / (1 + t2)) ^ k / (1 + t2)
+    p_k <- t4 / (1 + t1) * (t1 / (1 + t1)) ^ k + t5 / (1 + t2) * (t2 / (1 + t2)) ^ k +
+      (1 - t4 - t5) / (1 + t3) * (t3 / (1 + t3)) ^ k
+    p_k1 <- (t1 / (1 + t1)) ^ k * (k - t1) * t4 / (t1 * (1 + t1) ^ 2)
+    p_k2 <- (t2 / (1 + t2)) ^ k * (k - t2) * t5 / (t2 * (1 + t2) ^ 2)
+    p_k3 <- (t3 / (1 + t3)) ^ k * (k - t3) * (1 - t4 - t5) / (t3 * (1 + t3) ^ 2)
     
-    p_kj <- matrix(c(p_k1, p_k2, p_k3), ncol = 1)
+    p_k4 <- 1 / (1 + t1) * (t1 / (1 + t1)) ^ k - 1 / (1 + t3) * (t3 / (1 + t3)) ^ k
+    p_k5 <- 1 / (1 + t2) * (t2 / (1 + t2)) ^ k - 1 / (1 + t3) * (t3 / (1 + t3)) ^ k
+    p_kj <- matrix(c(p_k1, p_k2, p_k3, p_k4, p_k5), ncol = 1)
     A_k <- p_kj %*% t(p_kj) / p_k
     A <- A + A_k
-    if (A_k %>% abs %>% max < tol) break()
+    if (max(abs(A_k)) < tol) break()
     k <- k + 1
   }
   if (any(svd(A)$d < 1e-15)) {

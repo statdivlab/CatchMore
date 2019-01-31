@@ -63,11 +63,11 @@ two_geometric_model <- function(input_data, cutoff = 10, ...) {
   
   C_confint <- c(c_tau + c_excluded + f0/dd, c_tau + c_excluded + f0 * dd)
   ## AICc
-  AICc <- 3 * c_tau / (c_tau - 4) - sum(log(1:c_tau)) + 
-    sapply(1:length(ff), function(i) {
+  AICc <- 6 * c_tau / (c_tau - 4) - 2 * sum(log(1:c_tau)) + 
+    2 * sapply(1:length(ff), function(i) {
       sum(log(1:ff[i]))
     }) %>% sum -
-    sum(ff * log(u / t1 * (t1 / (1 + t1))^ii + (1 - u) / t2 * (t2 / (1 + t2))^ii))
+    2 * sum(ff * log(u / t1 * (t1 / (1 + t1))^ii + (1 - u) / t2 * (t2 / (1 + t2))^ii))
   
   
   ## GOF0 and GOF5
