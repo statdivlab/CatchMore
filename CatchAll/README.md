@@ -1,10 +1,4 @@
----
-output:
-  md_document:
-    variant: markdown_github
----
 
----
 ```{r, echo = FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE,
