@@ -1,15 +1,33 @@
-## Two-component mixture of exponential mixed Poisson model
+#' Two-component geometric mixture model for estimating species richness
+#'
+#' This function implements the species richness estimation with a two-component mixture
+#' exponential-mixed Poisson model (or three-component mixture exponential-mixed geometric model)
+#' for estimating species richness
+#'
+#' @param input_data An input type that can be processed by convert()
+#' @param cutoff Maximal frequency count of the data used to estimating the species richness. Default 10.
+#'
+#' @return An object of class \code{alpha_estimate}
+#'
+#' @importFrom breakaway convert alpha_estimate
+#' @export
+#'
+#' @examples
+#' library(breakaway)
+#' data(apples)
+#' two_geometric_model(apples, cutoff = 40)
 
+#' @export
 two_geometric_model <- function(input_data, cutoff = 10, ...) {
-  input_data <- breakaway::convert(input_data)
+  input_data <- convert(input_data)
 
   ## convert the data to frequency table
   included <- input_data[input_data$index <= cutoff,]
   excluded <- input_data[input_data$index > cutoff,]
-  
+
   ii <- included$index
   ff <- included$frequency
-  
+
 
 
   if (nrow(included) == 0) {
@@ -19,9 +37,9 @@ two_geometric_model <- function(input_data, cutoff = 10, ...) {
 
   c_tau <- sum(included$frequency)
   c_excluded <- sum(excluded$frequency)
-  
-  
-  
+
+
+
   if (length(ii) <= 4) {
     warning("Not enough different frequency counts. We recommend increase the cutoff.")
     return(alpha_estimate(estimate = NA,
@@ -44,7 +62,7 @@ two_geometric_model <- function(input_data, cutoff = 10, ...) {
                                        u = NA,
                                        cutoff = cutoff)))
   }
-  
+
   ## EM algorithm for obtaining the parameter estimates
   em_params <- two_mixed_exp_EM(input_data = included)
   u <- em_params$u
@@ -57,28 +75,28 @@ two_geometric_model <- function(input_data, cutoff = 10, ...) {
   C_hat <- C_tau + c_excluded
   ## se
   se_hat <- two_mixed_exp_se(C_tau, t1, t2, t3)
-  
+
   ## confidence interval
   dd <- ifelse(f0 == 0, 1, exp(1.96 * sqrt(log(1 + se_hat^2/f0))))
-  
+
   C_confint <- c(c_tau + c_excluded + f0/dd, c_tau + c_excluded + f0 * dd)
   ## AICc
-  AICc <- 6 * c_tau / (c_tau - 4) - 2 * sum(log(1:c_tau)) + 
+  AICc <- 6 * c_tau / (c_tau - 4) - 2 * sum(log(1:c_tau)) +
     2 * sum(sapply(1:length(ff), function(i) {
       sum(log(1:ff[i]))
     })) -
     2 * sum(ff * log(u / t1 * (t1 / (1 + t1))^ii + (1 - u) / t2 * (t2 / (1 + t2))^ii))
-  
-  
+
+
   ## GOF0 and GOF5
   O_c <- ff
   pp_E <- u / t1 * (t1 / (1 + t1))^ii + (1-u) / t2 * (t2 / (1 + t2))^ii
   E_c <- c_tau * pp_E
-  
+
   GOF0_twomixedexp <- GOF(O_c = O_c, E_c = E_c, param = 3, bin.tol = 0)
   GOF5_twomixedexp <- GOF(O_c = O_c, E_c = E_c, param = 3, bin.tol = 5)
-  
-  
+
+
   alpha_estimate(estimate = C_hat,
                  error = se_hat,
                  estimand = "richness",
@@ -90,8 +108,8 @@ two_geometric_model <- function(input_data, cutoff = 10, ...) {
                  reasonable = TRUE,
                  interval = C_confint,
                  interval_type = "Approximate: log-normal",
-                 GOF0 = pchisq(GOF0_twomixedexp$GOF, GOF0_twomixedexp$df, lower.tail = F) %>% signif(4),
-                 GOF5 = pchisq(GOF5_twomixedexp$GOF, GOF5_twomixedexp$df, lower.tail = F) %>% signif(4),
+                 GOF0 = signif(pchisq(GOF0_twomixedexp$GOF, GOF0_twomixedexp$df, lower.tail = F), 4),
+                 GOF5 = signif(pchisq(GOF5_twomixedexp$GOF, GOF5_twomixedexp$df, lower.tail = F), 4),
                  AICc = AICc,
                  other = list(t1 = t1,
                               t2 = t2,
@@ -105,6 +123,10 @@ two_geometric_model <- function(input_data, cutoff = 10, ...) {
 # t2 <- 6
 
 ## compute the likelihood of the parameters
+
+#' Internal functions for estimating species richness with a two-component geomic mixture model
+#'
+#' @export
 two_mixed_exp_lld <- function(input_data, t1, t2, u) {
   ii <- input_data$index
   ff <- input_data$frequency
@@ -113,6 +135,7 @@ two_mixed_exp_lld <- function(input_data, t1, t2, u) {
 }
 
 ## Initial values of the EM algorithm
+#' @export
 two_mixed_exp_init <- function(input_data) {
   ii <- input_data$index
   ff <- input_data$frequency
@@ -131,7 +154,7 @@ two_mixed_exp_init <- function(input_data) {
   init_values$lld <- apply(init_values, 1, function(rr) {
     two_mixed_exp_lld(input_data, u = rr[1], t1 = rr[2], t2 = rr[3])
   })
-  
+
   init_values_mle <- init_values[init_values$lld == max(init_values$lld),]
   return(list(u = init_values_mle$u,
               t1 = init_values_mle$t1,
@@ -139,6 +162,7 @@ two_mixed_exp_init <- function(input_data) {
               lld = init_values_mle$lld))
 }
 
+#' @export
 two_mixed_exp_EM <- function(input_data, MaxIter = 1000, tol = 1e-7) {
   ii <- input_data$index
   ff <- input_data$frequency
@@ -160,7 +184,7 @@ two_mixed_exp_EM <- function(input_data, MaxIter = 1000, tol = 1e-7) {
     #             ", u = ", u, ", lld = ", lld, sep = ""))
     #print(lld)
     ## update parameters
-    z <- (u / t1 * (t1 / (1 + t1))^ii) / 
+    z <- (u / t1 * (t1 / (1 + t1))^ii) /
       (u / t1 * (t1 / (1 + t1))^ii + (1 - u) / t2 * (t2 / (1 + t2))^ii)
     u_new <- sum(ff * z) / c_tau
     t1_new <- sum(ii * ff * z) / sum(ff * z) - 1
@@ -188,6 +212,7 @@ two_mixed_exp_EM <- function(input_data, MaxIter = 1000, tol = 1e-7) {
               flag = flag))
 }
 
+#' @export
 two_mixed_exp_se <- function(cc, t1, t2, t3, MaxIter = 500, tol = 1e-7) {
   a00 <- (t2 + t1 * t2 + t1 * t3 - t2 * t3) /
     (1 + t1 - t1 * t3 + t2 * t3)
