@@ -89,9 +89,9 @@ two_geometric_model <- function(input_data, cutoff = 10, ...) {
 
 
   ## GOF0 and GOF5
-  O_c <- ff
+  O_c <- c(ff, 0)
   pp_E <- u / t1 * (t1 / (1 + t1))^ii + (1-u) / t2 * (t2 / (1 + t2))^ii
-  E_c <- c_tau * pp_E
+  E_c <- c_tau * c(pp_E, 1 - sum(pp_E))
 
   GOF0_twomixedexp <- GOF(O_c = O_c, E_c = E_c, param = 3, bin.tol = 0)
   GOF5_twomixedexp <- GOF(O_c = O_c, E_c = E_c, param = 3, bin.tol = 5)

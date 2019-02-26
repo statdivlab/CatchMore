@@ -94,8 +94,9 @@ geometric_model <- function(input_data, cutoff = 10) {
   C_confint <- c(c_tau + c_excluded + f0/d, c_tau + c_excluded + f0*d)
 
   ## TODO: GOODNESS-OF-FIT
-  O_c <- c(included$frequency)
-  E_c <- c(C_hat_truncated * dgeom(included$index, prob = 1/(1 + theta_hat)))
+  O_c <- c(included$frequency, 0)
+  E_c <- c(C_hat_truncated * dgeom(included$index, prob = 1/(1 + theta_hat)),
+           C_hat_truncated * pgeom(included$index, prob = 1/(1 + theta_hat), lower.tail = F))
 
   GOF0.geom <- GOF(O_c = O_c, E_c = E_c, param = 1, bin.tol = 0)
   GOF5.geom <- GOF(O_c = O_c, E_c = E_c, param = 1, bin.tol = 5)
@@ -191,8 +192,9 @@ Poisson_model <- function(input_data, cutoff = 10) {
   C_confint <- c(c_tau + c_excluded + f0/dd, c_tau + c_excluded + f0 * dd)
 
   ## get expected counts
-  E_c <- c(c_hat_truncated * dpois(included$index, lambda = lambda_hat))
-  O_c <- c(included$frequency)
+  E_c <- c(c_hat_truncated * dpois(included$index, lambda = lambda_hat),
+           c_hat_truncated * ppois(max(included$index), lambda = lambda_hat, lower.tail = F))
+  O_c <- c(included$frequency, 0)
 
   ## bin the counts that are less than five
   ## start with the first cell. bin the cells one by one
