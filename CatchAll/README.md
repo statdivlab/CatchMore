@@ -14,7 +14,7 @@ mixed-Poisson model).
 
 ```r
 library(devtools)
-install_github("/KenLi93/CatchAll")
+install_github("KenLi93/CatchAll")
 library(CatchAll)
 ```
 
@@ -39,13 +39,12 @@ geometric_model(apples, cutoff = 20)
 Two- or three-component exponential mixture mixed Poisson model:
 ```r
 two_geometric_model(apples, cutoff = 50)
-three_geometric_model(apples, cutoff = 50)
+three_geometric_model(apples, cutoff = 70)
 ```
 
-An integrated function for simutaneously viewing the results of all 
-above models for different cut-off of species frequency counts.
+An integrated function for viewing the results of "best" models.
 
 ```r 
-apples_results <- all_parametric_model(apples)
-head(apples_results, 20)
+apples_results <- catch_all(apples)
+apple_results
 ```
