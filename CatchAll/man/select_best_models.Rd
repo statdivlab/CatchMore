@@ -4,8 +4,8 @@
 \alias{select_best_models}
 \title{"Best" parametric models for estimating species richness with various cutoff values}
 \usage{
-select_best_models(input_data, parallel = F, control = list(ncores =
-  ceiling(detectCores()/2)))
+select_best_models(input_data, parallel = F, tau_range = NULL,
+  control = list(ncores = ceiling(detectCores()/2)))
 }
 \arguments{
 \item{input_data}{An input type that can be processed by convert()}

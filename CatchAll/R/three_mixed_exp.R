@@ -41,7 +41,7 @@ three_geometric_model <- function(input_data, cutoff = 10, ...) {
 
 
   if (length(ii) <= 4) {
-    warning("Not enough different frequency counts. We recommend increase the cutoff.")
+    warning("Not enough different frequency counts. We recommend increasing the cutoff.")
     return(alpha_estimate(estimate = NA,
                           error = NA,
                           estimand = "richness",
@@ -103,9 +103,9 @@ three_geometric_model <- function(input_data, cutoff = 10, ...) {
   alpha_estimate(estimate = C_hat,
                  error = se_hat,
                  estimand = "richness",
-                 name = "Two-component Geometric mixture Model",
+                 name = "Three-component Geometric mixture Model",
                  type = "parametric",
-                 model = "Two-component Geometric mixture Model",
+                 model = "Three-component Geometric mixture Model",
                  frequentist = TRUE,
                  parametric = TRUE,
                  reasonable = TRUE,

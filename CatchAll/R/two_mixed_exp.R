@@ -9,7 +9,6 @@
 #'
 #' @return An object of class \code{alpha_estimate}
 #'
-#' @importFrom breakaway convert alpha_estimate
 #' @export
 #'
 #' @examples

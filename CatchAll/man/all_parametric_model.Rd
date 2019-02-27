@@ -4,14 +4,16 @@
 \alias{all_parametric_model}
 \title{Multiple parametric models for estimating species richness with various cutoff values}
 \usage{
-all_parametric_model(input_data, parallel = F, control = list(ncores =
-  ceiling(detectCores()/2)))
+all_parametric_model(input_data, parallel = F, tau_range = NULL,
+  control = list(ncores = ceiling(detectCores()/2)))
 }
 \arguments{
 \item{input_data}{An input type that can be processed by convert()}
 
 \item{parallel}{A logic scalar that decides whether the richness estimates are computed with parallelization.
 Currently an error is returned for Windows.}
+
+\item{tau_range}{A two-dimensional vector of positive intergers specifing the range of the cutoffs you'd like to vary within}
 
 \item{control}{A list containing an integer \code{ncores} that specifies the number of cores to use
 in parallelization when \code{parallel == T}}

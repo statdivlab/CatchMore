@@ -41,26 +41,57 @@ alpha_estimate <- function(estimate = NULL,
   # # TODO need f0
   #   d <- exp(1.96*sqrt(log(1 + error^2 / f0)))
   #
-  # }breakaway()
+  # }
 
-  breakaway::alpha_estimate(estimate = estimate,
-                            error = error,
-                            name = name,
-                            interval = interval,
-                            interval_type = interval_type,
-                            type = type,
-                            model = model,
-                            warnings = warnings,
-                            frequentist = frequentist,
-                            parametric = parametric,
-                            reasonable = reasonable,
-                            ...)
+  alpha_object <- list(estimate = estimate,
+                       error = error,
+                       estimand = tolower(estimand),
+                       name = name,
+                       interval = interval, #ifelse(is.na(estimate), c(NA, NA), interval),
+                       interval_type = interval_type,
+                       type = type,
+                       model = model,
+                       warnings = warnings,
+                       frequentist = frequentist,
+                       parametric = parametric,
+                       plot = plot,
+                       reasonable = reasonable,
+                       other = other,
+                       est = estimate,
+                       seest = error,
+                       ci = interval,
+                       ...)
+
+
+  class(alpha_object) <- append("alpha_estimate", class(alpha_object))
+
+  return(alpha_object)
 }
 
 #' @export
 print.alpha_estimate <- function(x, ...) {
 
-  breakaway:::print.alpha_estimate(x, ...)
+  if (is.null(x$estimand)) {
+    cat("Attempt to print estimate with unknown estimand")
+  } else if (is.null(x$name)) {
+    cat("Attempt to print estimate with unknown name")
+  } else if (is.null(x$estimate)) {
+    cat("Attempt to print estimate with unknown estimate")
+  } else {
+    cat(paste("Estimate of ", x$estimand,
+              " from method ", x$name, ":\n", sep=""))
+    cat(paste("  Estimate is ", round(x$estimate, ifelse(x$estimand == "richness", 0, 2)),
+              " with standard error ", round(x$error, 2), "\n", sep=""))
+    if (!is.null(x$interval)) {
+      cat(paste("  Confidence interval: (",
+                round(x$interval[1], ifelse(x$estimand == "richness", 0, 2)), ", ",
+                round(x$interval[2], ifelse(x$estimand == "richness", 0, 2)), ")\n", sep=""))
+    }
+    if (!is.null(x$other$cutoff)) {
+      cat(paste("  Cutoff: ", x$other$cutoff))
+    }
+    cat("\n")
+  }
 }
 
 #' @export
@@ -68,14 +99,18 @@ summary.alpha_estimate <- function(object, ...) {
   # output just like a list
 
   # don't plot
-  breakaway:::summary.alpha_estimate(object, ...)
+  y <- object
+  class(y) <- setdiff(class(y), "alpha_estimate")
+  y$plot <- NULL
+  print(y)
 }
 
 
 #' @export
 plot.alpha_estimate <- function(x, ...) {
-  breakaway:::plot.alpha_estimate(x)
+  x$plot
 }
+
 
 
 
@@ -91,7 +126,42 @@ plot.alpha_estimate <- function(x, ...) {
 #' @export
 convert <- function(input_data) {
 
-  breakaway:::convert(input_data)
+  if (class(input_data) == "character") {
+
+    stop("breakaway no longer supports file paths as inputs")
+
+  } else if ("data.frame" %in% class(input_data) |
+             "matrix" %in% class(input_data)) {
+
+    # determine if frequency count table or vector
+    if (dim(input_data)[2] != 2) {
+      stop("input_data is a data.frame or matrix but not a frequency count table.\n")
+    }
+
+    output_data <- input_data
+
+  } else if (class(input_data) %in% c("numeric", "integer")) {
+
+    # must be vector of counts
+    if (isTRUE(all.equal(sum(input_data), 1)) &
+        length(unique(input_data)) > 2) {
+      stop("species richness estimates cannot accept relative abundances")
+    }
+
+    if (any(input_data %% 1 != 0)) {
+      stop("input_data is a vector but not a vector of integers")
+    }
+
+    input_data_remove_zeros <- input_data[input_data != 0]
+    output_data <- as.data.frame(table(input_data_remove_zeros))
+
+  } else {
+    stop(paste("Unsupported input type to function `convert`.",
+               "You passed in an object of class", class(input_data)))
+  }
+
+  checked_output_data <- check_format(output_data)
+  checked_output_data
 
 }
 
@@ -103,116 +173,34 @@ convert <- function(input_data) {
 #' @return A checked frequency count table
 check_format <- function(output_data) {
 
-  breakaway:::check_format(output_data)
+  if (length(output_data) <= 1) {
+    warning("Input data to `check_format` is of length 1 or 0.")
+    return(NULL)
+  }
+
+  if(!(class(output_data) %in% c("matrix", "data.frame"))) stop("Input should be a matrix or a data frame")
+
+  if(length(dim(output_data)) != 2) stop("Input should have 2 columns")
+
+  if(any(output_data[,2] %% 1 != 0)) stop("Second input column not integer-valued; should be counts")
+
+  if(!all(rank(output_data[,1]) == 1:length(output_data[,1]))) warning("Frequency count format, right?")
+
+
+  ## if table is used to create the frequency tables, the frequency index column is usually a factor, so fix this here
+  if (class(output_data[,1]) == "factor") {
+    output_data[,1] <- as.integer(as.character(output_data[,1]))
+  }
+
+  # remove rows with zero
+  output_data <- output_data[output_data[, 2] != 0, ]
+  output_data <- data.frame(output_data)
+
+  colnames(output_data) <- c("index", "frequency")
+
+  if (!all(sort(output_data[, 1]) == output_data[, 1])) {
+    stop("frequency counts not in order in `convert`")
+  }
+
+  output_data
 }
-
-
-#' The transformed weighted linear regression estimator for species richness estimation
-#'
-#' This function implements the transformed version of the species richness
-#' estimation procedure outlined in Rocchetti, Bunge and Bohning (2011).
-#'
-#' @param input_data An input type that can be processed by \code{convert()} or a \code{phyloseq} object
-#' @param cutoff Maximum frequency count to use
-#' @param print Deprecated; only for backwards compatibility
-#' @param plot Deprecated; only for backwards compatibility
-#' @param answers Deprecated; only for backwards compatibility
-#'
-#' @return An object of class \code{alpha_estimate}, or \code{alpha_estimates} for \code{phyloseq} objects
-#'
-#' @note While robust to many different structures, model is almost always
-#' misspecified. The result is usually implausible diversity estimates with
-#' artificially low standard errors. Extreme caution is advised.
-#' @author Amy Willis
-#' @seealso \code{\link{breakaway}}; \code{\link{apples}};
-#' \code{\link{wlrm_untransformed}}
-#' @references Rocchetti, I., Bunge, J. and Bohning, D. (2011). Population size
-#' estimation based upon ratios of recapture probabilities. \emph{Annals of
-#' Applied Statistics}, \bold{5}.
-#' @keywords diversity models
-#'
-#' @import ggplot2
-#' @import stats
-#'
-#' @examples
-#'
-#' wlrm_transformed(apples)
-#' wlrm_transformed(apples, plot = FALSE, print = FALSE, answers = TRUE)
-#'
-#' @export
-
-wlrm_transformed <- function(input_data, ...) {
-  breakaway::wlrm_transformed(input_data, ...)
-}
-
-
-#' The untransformed weighted linear regression estimator for species richness estimation
-#'
-#' This function implements the untransformed version of the species richness
-#' estimation procedure outlined in Rocchetti, Bunge and Bohning (2011).
-#'
-#' @param input_data An input type that can be processed by \code{convert()} or a \code{phyloseq} object
-#' @param cutoff Maximum frequency count to use
-#' @param print Deprecated; only for backwards compatibility
-#' @param plot Deprecated; only for backwards compatibility
-#' @param answers Deprecated; only for backwards compatibility
-#'
-#' @return An object of class \code{alpha_estimate}, or \code{alpha_estimates} for \code{phyloseq} objects
-#' @note This estimator is based on the negative binomial model and for that
-#' reason generally produces poor fits to microbial data. The result is usually
-#' artificially low standard errors. Caution is advised.
-#'
-#' @author Amy Willis
-#' @seealso \code{\link{breakaway}}; \code{\link{apples}};
-#' \code{\link{wlrm_transformed}}
-#' @references Rocchetti, I., Bunge, J. and Bohning, D. (2011). Population size
-#' estimation based upon ratios of recapture probabilities. \emph{Annals of
-#' Applied Statistics}, \bold{5}.
-#' @keywords diversity models
-#' @importFrom graphics legend points
-#' @importFrom utils head read.table
-#'
-#' @import ggplot2
-#' @import stats
-#'
-#' @examples
-#'
-#' wlrm_untransformed(apples)
-#'
-#' @export
-
-wlrm_untransformed <- function(input_data, ...) {
-  breakaway::wlrm_untransformed(input_data, ...)
-}
-
-
-#' Chao1 species richness estimator
-#'
-#' This function implements the Chao1 richness estimate, which is often
-#' mistakenly referred to as an index.
-#'
-#'
-#' @param input_data An input type that can be processed by \code{convert()} or a \code{phyloseq} object
-#' @param output Deprecated; only for backwards compatibility
-#' @param answers Deprecated; only for backwards compatibility
-#'
-#' @return An object of class \code{alpha_estimate}, or \code{alpha_estimates} for \code{phyloseq} objects
-#' @note The authors of this package strongly discourage the use of this
-#' estimator.  It is only valid when you wish to assume that every taxa has
-#' equal probability of being observed. You don't really think that's possible,
-#' do you?
-#' @author Amy Willis
-#' @examples
-#'
-#'
-#' chao1(apples)
-#'
-#'
-#' @export
-#'
-
-chao1 <- function(input_data, ...) {
-  breakaway::chao1(input_data, ...)
-}
-
-

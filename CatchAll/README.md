@@ -14,7 +14,7 @@ mixed-Poisson model).
 
 ```r
 library(devtools)
-install_github("/statdivlab/CatchMore/CatchAll")
+install_github("/KenLi93/CatchAll")
 library(CatchAll)
 ```
 

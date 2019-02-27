@@ -4,6 +4,7 @@ Title: Species Richness estimation with CatchAll
 Version: 0.1.0
 Author: Amy Willis
 Description: An R implementation of CatchAll, which implements species richness estimation and evaluation of the estimators.
+Depends: R (>= 3.4.0), dplyr, parallel
 License: GPL-2
 Encoding: UTF-8
 LazyData: true

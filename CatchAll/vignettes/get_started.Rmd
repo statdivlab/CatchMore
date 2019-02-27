@@ -1,0 +1,68 @@
+---
+title: "Getting Started with CatchAll"
+author: "Kendrick Li"
+output: pdf_document
+vignette: >
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteIndexEntry{Getting Started}
+  %\VignetteEncoding[utf8]{inputenc}
+---
+
+```{r setup, include=FALSE, cache=TRUE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
+```
+
+
+This package contains functions that estimate the species richness with finite exponential-mixed Poisson models (up to the three-component exponential mixed-Poisson model) and other state-of-art species richness estimators.
+## Installation ##
+
+
+```{r}
+library(devtools)
+install_github("KenLi93/CatchAll")
+
+```
+
+## Basic Usage ##
+
+
+```{r}
+library(CatchAll)
+library(breakaway)
+data(apples)
+```
+
+Poisson Model:
+```{r}
+Poisson_model(apples, cutoff = 20)
+```
+
+Geometric model (or single exponential-mixed Poisson model):
+```{r}
+geometric_model(apples, cutoff = 20)
+```
+
+Two- or three-component exponential mixture mixed Poisson model:
+```{r}
+two_geometric_model(apples, cutoff = 50)
+```
+
+```{r}
+three_geometric_model(apples, cutoff = 70)
+```
+
+An integrated function for simultaneously viewing the results of all 
+above models for different cut-off of species frequency counts.
+
+```{r} 
+apples_results <- all_parametric_model(apples)
+head(apples_results, 10)
+```
+
+The richness estimates in CatchAll are displayed as follows:
+
+```{r}
+apples_best_models <- catch_all(apples)
+apples_best_models
+```
+
