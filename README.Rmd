@@ -24,40 +24,33 @@ CatchMore is written by [Kendrick Qijin Li](http://students.washington.edu/qijun
 
 
 ```r
-library(devtools)
-install_github("statdivlab/CatchMore")
+devtools::install_github("statdivlab/CatchMore")
 library(CatchMore)
 ```
 
 ## Basic Usage ##
 
+Let's illustrate CatchMore using the `apples` dataset from the `breakaway` package
 
 ```r
 library(breakaway)
 data(apples)
 ```
 
-Poisson Model:
+CatchMore can run a number of different exponential-mixed Poisson models, including the Poisson model (a zero-exponential mixture), the geometric model (a single exponential-mixed Poisson model), and two- or three-component exponential mixture:
+
 ```r
 Poisson_model(apples, cutoff = 20)
-```
-
-Geometric model (or single exponential-mixed Poisson model):
-```r
 geometric_model(apples, cutoff = 20)
-```
-
-Two- or three-component exponential mixture mixed Poisson model:
-```r
 two_geometric_model(apples, cutoff = 50)
 three_geometric_model(apples, cutoff = 70)
 ```
 
-An integrated function for viewing the results of "best" models.
+To pick between them, we implemented `catch_all`, which produces the same results as legacy CatchAll, and our new model selection procedure `catch_more`:
 
 ```r 
-apples_results <- catch_all(apples)
-apple_results
+catch_all(apples)
+catch_more(apples)
 ```
 
 
