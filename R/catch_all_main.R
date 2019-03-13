@@ -64,7 +64,7 @@ catch_all <- function(input_data, ...) {
   }
 
 
-  suppressWarnings( res_tab <- bind_rows(param_tab$BestModels %>% dplyr::filter(!is.na(Est)),
+  suppressWarnings(res_tab <- bind_rows(param_tab$BestModels %>% dplyr::filter(!is.na(Est)),
                                          chao1_tab,
                                          wlrm_tab,
                                          logwlrm_tab,

@@ -46,7 +46,8 @@ all_parametric_model <- function(input_data,
                         "three_mixed_exp_EM", "ii"))
 
     all_results <- mclapply(tau_range[1]:tau_range[2], function (tau) {
-      cat(".")
+      cat("...")
+      cat(tau)
       poisson_tau <- Poisson_model(input_data, cutoff = tau)
       geometric_tau <- geometric_model(input_data, cutoff = tau)
       two_mixed_geom_tau <- two_geometric_model(input_data, cutoff = tau)
@@ -200,6 +201,7 @@ select_best_models <- function(input_data,
 
     bestModel2A <- bestModels %>%
       dplyr::filter(GOF0 == max(GOF0)) %>%
+      dplyr::filter(tau == max(tau)) %>%
       bind_cols(tibble(Description = c("Best Model 2A")),
                 .)
 
@@ -230,7 +232,8 @@ select_best_models <- function(input_data,
     bestModels <- all_results_tib %>%
       dplyr::filter(GOF5 > 0.01) %>%
       group_by(tau) %>%
-      dplyr::filter(AICc == min(AICc))
+      dplyr::filter(AICc == min(AICc)) %>%
+      group_by()
 
     bestModel1 <- bestModels %>%
       dplyr::filter(GOF0 > 0.01) %>%
@@ -241,6 +244,7 @@ select_best_models <- function(input_data,
 
     bestModel2A <- bestModels %>%
       dplyr::filter(GOF0 == max(GOF0)) %>%
+      dplyr::filter(tau == max(tau)) %>%
       bind_cols(tibble(Description = c("Best Model 2A")),
                 .)
 
@@ -249,11 +253,15 @@ select_best_models <- function(input_data,
       bind_cols(tibble(Description = c("Best Model 2B")),
                 .)
 
+    if (min(bestModels$tau) <= 10) {
     bestModel2C <- bestModels %>%
       dplyr::filter(tau <= 10) %>%
       dplyr::filter(tau == max(tau)) %>%
       bind_cols(tibble(Description = c("Best Model 2C")),
                 .)
+    } else {
+    bestModel2C <- tibble(Description = "Best Model 2C", tau = NA, Model = NA, Est = NA, SE = NA, AICc = NA)
+    }
 
     output <- bind_rows(bestModel1, bestModel2A, bestModel2B, bestModel2C)
 
@@ -289,7 +297,7 @@ select_best_models <- function(input_data,
 #' best_model(apples)
 #'
 #' @export
-best_model <- function(input_data, alpha_estimate = T, ...) {
+catch_best <- function(input_data, alpha_estimate = T, ...) {
   best_models <- select_best_models(input_data, ...)
 
   bob <- best_models$BestModels %>%
